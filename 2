@@ -1,0 +1,15 @@
+#include <Windows.h>
+#include <stdio.h>
+int main(void) {
+     HMODULE documentDLL = LoadLibraryW(L"C:\\ ... \\ ... \\document.dll");
+     if (documentDLL == NULL) {
+          printf("Nu s-a putut obține o pârghie către document.dll, eroare: 0x%lx\n", GetLastError());
+          return EXIT_FAILURE;
+     }
+     printf("Am primit cu succes o pârghie document.dll!\n");
+     printf("---0x%p\n", documentDLL);
+     FreeLibrary(documentDLL);
+     printf("Terminat, apăsați <enter> pentru a ieși\n");
+     getchar();
+     return EXIT_SUCCESS;
+}
