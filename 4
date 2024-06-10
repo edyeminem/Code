@@ -1,0 +1,57 @@
+static void chacha20_sfertrunda(uint32_t *x, int a, int b, int c, int d) {
+    x[a] += x[b]; x[d] ^= x[a]; x[d] = (x[d] << 16) | (x[d] >> 16);
+    x[c] += x[d]; x[b] ^= x[c]; x[b] = (x[b] << 12) | (x[b] >> 20);
+    x[a] += x[b]; x[d] ^= x[a]; x[d] = (x[d] << 8) | (x[d] >> 24);
+    x[c] += x[d]; x[b] ^= x[c]; x[b] = (x[b] << 7) | (x[b] >> 25);
+}
+static void chacha20_serializare(uint32_t in[16], uint8_t output[64]) {
+    for (int i = 0; i < 16; i++) {
+        for (int j = 0; j < 4; j++) {
+            output[i * 4 + j] = (in[i] >> (j * 8)) & 0xFF;
+        }
+    }
+}
+static void chacha20_blocare(uint32_t in[16], uint8_t out[64], int num_rounds) {
+    uint32_t x[16];
+    memcpy(x, in, sizeof(uint32_t) * 16);
+    while (num_rounds > 0) {
+        for (int i = 0; i < 16; i += 4) {
+            chacha20_sfertrunda(x, i, i + 4, i + 8, i + 12);
+        }
+        num_rounds -= 2;
+    }
+    for (int i = 0; i < 16; i++) {
+        x[i] += in[i];
+    }
+    chacha20_serializare(x, out);
+}
+static void chacha20_initiere_stare(uint32_t s[16], uint8_t cheie[32], uint32_t contor, uint8_t nonce[12]) {
+    const uint32_t constante[4] = {// se introduc 4 valori constante în hexazecimal};
+    memcpy(s, constante, sizeof(uint32_t) * 4);
+
+    for (int i = 0; i < 8; i++) {
+        s[4 + i] = (uint32_t)cheie[i * 4] |
+                   ((uint32_t)cheie[i * 4 + 1] << 8) |
+                   ((uint32_t)cheie[i * 4 + 2] << 16) |
+                   ((uint32_t)cheie[i * 4 + 3] << 24);
+    }
+    s[12] = contor;
+    for (int i = 0; i < 3; i++) {
+        s[13 + i] = (uint32_t)nonce[i * 4] |
+                    ((uint32_t)nonce[i * 4 + 1] << 8) |
+                    ((uint32_t)nonce[i * 4 + 2] << 16) |
+                    ((uint32_t)nonce[i * 4 + 3] << 24);
+    }
+}
+void ChaXOR(uint8_t cheie[32], uint32_t contor, uint8_t nonce[12], uint8_t *in, uint8_t *out, int inlng) {
+    uint32_t stare[16];
+    chacha20_initiere_stare(stare, cheie, contor, nonce);
+    for (int i = 0; i < inlng; i += 64) {
+        uint8_t bloc[64];
+        chacha20_blocare(stare, bloc, 20);
+        stare[12]++;
+        for (int j = 0; j < 64 && i + j < inlng; j++) {
+            out[i + j] = in[i + j] ^ bloc[j];
+        }
+    }
+}
