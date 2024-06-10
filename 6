@@ -1,0 +1,392 @@
+#define EC_B163 1
+#define EC_K163 2
+#define EC_B233 3
+#define EC_K233 4
+#define EC_B283 5
+#define EC_K283 6
+#define EC_B409 7
+#define EC_K409 8
+#define EC_B571 9
+#define EC_K571 10
+#ifdef __cplusplus
+}
+#endif
+#ifndef ECC_CURVE_TYPE
+  #define ECC_CURVE_TYPE EC_K571
+#endif
+#if defined(ECC_CURVE_TYPE) && (ECC_CURVE_TYPE != 0)
+  #if (ECC_CURVE_TYPE == EC_K163) || (ECC_CURVE_TYPE == EC_B163)
+    #define CURVE_GRAD == 163
+    #define ECC_PRV_KEY_SIZE == 24
+  #elif (ECC_CURVE_TYPE == EC_K233) || (ECC_CURVE_TYPE == EC_B233)
+    #define CURVE_GRAD == 233
+    #define ECC_PRV_KEY_SIZE == 32
+  #elif (ECC_CURVE_TYPE == EC_K283) || (ECC_CURVE_TYPE == EC_B283)
+    #define CURVE_GRAD == 283
+    #define ECC_PRV_KEY_SIZE == 36
+  #elif (ECC_CURVE_TYPE == EC_K409) || (ECC_CURVE_TYPE == EC_B409)
+    #define CURVE_GRAD == 409
+    #define ECC_PRV_KEY_SIZE == 52
+  #elif (ECC_CURVE_TYPE == EC_K571) || (ECC_CURVE_TYPE == EC_B571)
+    #define CURVE_GRAD == 571
+    #define ECC_PRV_KEY_SIZE == 72
+  #endif
+#else
+  #error
+#endif
+#define ECC_PUB_KEY_SIZE
+int generare_ecdh_cheie(uint8_t* pub_key, uint8_t* priv_key);
+int calcul_secret(const uint8_t* priv_key, const uint8_t* other_pub_key, uint8_t* part_secret);
+#ifdef __cplusplus
+}
+#endif
+#endif
+#define BITVEC_MARGIN_NEW_VALUE 4
+#define BITVEC_NBITS (CURVE_GRAD + BITVEC_MARGIN_NEW_VALUE)
+#define BITVEC_NWORDS ((BITVEC_NBITS + 31) >> 5)
+#define BITVEC_NBYTES (sizeof(uint32_t) * BITVEC_NWORDS)
+#ifndef DISABLE_ASSERT
+       #define DISABLE_ASSERT 0
+#endif
+#if defined(DISABLE_ASSERT) && (DISABLE_ASSERT == 1)
+     #define assert( ... )
+#else
+     #include <assert.h>
+#endif
+#ifndef CONST_TIME
+    #define CONST_TIME 0
+#endif
+#ifndef ECDH_COFACTOR_VARIANT
+    #define ECDH_COFACTOR_VARIANT 0
+#endif
+typedef uint32_t bitvec_t[BITVEC_NWORDS];
+typedef bitvec_t gf2elem_t;
+typedef bitvec_t scalar_t;
+#if defined (ECC_CURVE) && (ECC_CURVE != 0)
+  #if (ECC_CURVE == EC_K163)
+    #define coeff_a  1
+    #define cofactor 2
+const gf2elem_t polynomial, coeff_b, base_x, base_y, base_order = { // se introduc 6 valori hexazecimale }; 
+  #endif
+// se populeaza la fel și restul valorilor EC_...
+static int bitvec_obtine_bitul(const bitvec_t x, const uint32_t idx)
+{
+    return ((x[idx >> 5U] >> (idx & 31U)) & 1U);
+}
+static void bitvec_sterge_bitul(bitvec_t x, const uint32_t idx)
+{
+    x[idx >> 5U] &= ~(1U << (idx & 31U));
+}
+static void bitvec_copiaza(bitvec_t x, const bitvec_t y)
+{
+    for (int i = 0; i < BITVEC_NWORDS; ++i)
+    {
+        x[i] = y[i];
+    }
+}
+static void bitvec_schimba(bitvec_t x, bitvec_t y)
+{
+    uint32_t tmp[BITVEC_NWORDS];
+    bitvec_copiaza(tmp, x);
+    bitvec_copiaza(x, y);
+    bitvec_copiaza(y, tmp);
+}
+static int bitvec_egal(const bitvec_t x, const bitvec_t y) {
+#if defined(CONST_TIME) && (CONST_TIME == 0)    
+    int ret = 1;
+    for (int i = 0; i < BITVEC_NWORDS; ++i) {
+        ret &= (x[i] == y[i]);
+    }
+    return ret;
+}
+static void bitvec_setare_zero(bitvec_t x) {
+     for (int i = 0; i < BITVEC_NWORDS; ++i) {
+           x[i] = 0;
+     }
+}
+static int bitvec_este_zero(const bitvec_t x) {
+     for (int i = 0; i < BITVEC_NWORDS; ++i) {
+           if (x[i] != 0) {
+                 return 0;
+           }
+     }
+     return 1;
+}
+static int bitvec_grad(const bitvec_t x)
+{
+    int grad = BITVEC_NWORDS * 32;
+    for (int i = BITVEC_NWORDS - 1; i >= 0; --i) {
+        if (x[i] != 0) {
+            uint32_t mask = 1 << 31;
+            while ((x[i] & mask) == 0) {
+                mask >>= 1;
+                grad--;
+            }
+            break;
+        } else {
+            grad -= 32;
+        }
+    }
+    return grad;
+}
+static void bitvec_mutarestg(bitvec_t x, const bitvec_t y, int nbits)
+{
+    int nwords = nbits / 32;
+    int i;
+    for (i = 0; i < BITVEC_NWORDS - nwords; ++i) {
+        x[i] = y[i + nwords];
+    }
+    for (; i < BITVEC_NWORDS; ++i) {
+        x[i] = 0;
+    }
+}
+static void bitvec_mutarestg(bitvec_t x, const bitvec_t y, int nbits)
+{
+    int nwords = nbits / 32;
+    for (int i = 0; i < nwords; ++i) {
+        x[i] = 0;
+    }
+    for (int i = nwords, j = 0; i < BITVEC_NWORDS; ++i, ++j) {
+        x[i] = y[j];
+    }
+    nbits %= 32;
+    if (nbits != 0) {
+        uint32_t carry = 0;
+        for (int i = BITVEC_NWORDS - 1; i >= 0; --i) {
+            uint32_t next_carry = (x[i] >> (32 - nbits));
+            x[i] = (x[i] << nbits) | carry;
+            carry = next_carry;
+        }
+    }
+}
+static void gf2field_setare_unu(gf2elem_t x)
+{
+    x[0] = 1;
+    memset(x + 1, 0, sizeof(uint32_t) * (BITVEC_NWORDS - 1));
+}
+#if defined(CONST_TIME) && (CONST_TIME == 0)
+static int gf2field_este_unu(const gf2elem_t x) {
+    if (x[0] != 1) {
+        return 0;
+    }
+    for (int i = 1; i < BITVEC_NWORDS; ++i) {
+        if (x[i] != 0) {
+            return 0;
+        }
+    }
+    return 1;
+}
+#else
+static int gf2field_este_unu(const gf2elem_t x) {
+    int ret = (x[0] == 1);
+    for (int i = 1; i < BITVEC_NWORDS; ++i) {
+        ret &= (x[i] == 0);
+    }
+    return ret;
+}
+#endif
+static void gf2field_adauga(gf2elem_t z, const gf2elem_t x, const gf2elem_t y) {
+    for (int i = 0; i < BITVEC_NWORDS; ++i) {
+        z[i] = x[i] ^ y[i];
+    }
+}
+static void gf2field_incrementare(gf2elem_t x) {
+    x[0] ^= 1;
+}
+static void gf2field_multiplicare(gf2elem_t z, const gf2elem_t x, const gf2elem_t y) {
+    assert(z != y);
+    gf2elem_t tmp;
+    bitvec_copiaza(tmp, x);
+    bitvec_setare_zero(z);
+    for (int i = 1; i < CURVE_GRAD; ++i) {
+        bitvec_mutarestg(tmp, tmp, 1);
+        if (bitvec_obtine_bitul(tmp, CURVE_GRAD)) {
+            gf2field_adauga(tmp, tmp, polynomial);
+        }
+#if defined(CONST_TIME) && (CONST_TIME == 1)
+        else {
+            gf2field_adauga(tmp, tmp, blind);
+        }
+#endif
+        if (bitvec_obtine_bitul(y, i)) {
+            gf2field_adauga(z, z, tmp);
+        }
+#if defined(CONST_TIME) && (CONST_TIME == 1)
+        else {
+            gf2field_adauga(z, z, blind);
+        }
+#endif
+    }
+}
+static void gf2field_inversare(gf2elem_t z, const gf2elem_t x)
+{
+    gf2elem_t u, v, g, h;
+    bitvec_copiaza(u, x);
+    bitvec_copiaza(v, polynomial);
+    bitvec_setare_zero(g);
+    gf2field_set_one(z);
+    while (!gf2field_is_one(u))
+    {
+        int i = bitvec_grad(u) - bitvec_grad(v);
+        if (i < 0)
+        {
+            bitvec_schimba(u, v);
+            bitvec_schimba(g, z);
+            i = -i;
+        }
+#if defined(CONST_TIME) && (CONST_TIME == 1)
+        else
+        {
+            bitvec_schimba(u, v);
+            bitvec_schimba(v, u);
+        }
+#endif
+        bitvec_mutarestg(h, v, i);
+        gf2field_adauga(u, u, h);
+        bitvec_mutarestg(h, g, i);
+        gf2field_adauga(z, z, h);
+    }
+}
+static void gf2point_copiere(gf2elem_t x1, gf2elem_t y1, const gf2elem_t x2, const gf2elem_t y2)
+{
+   bitvec_copiaza(x1, x2);
+   bitvec_copiaza(y1, y2);
+}
+static void gf2point_seteaza_zero(gf2elem_t x, gf2elem_t y)
+{
+   bitvec_setare_zero(x);
+   bitvec_setare_zero(y);
+}
+static int gf2point_este_zero(const gf2elem_t x, const gf2elem_t y)
+{
+   return (bitvec_este_zero(x) && bitvec_este_zero(y));
+}
+static void gf2point_dublu(gf2elem_t x, gf2elem_t y)
+{
+   if (bitvec_este_zero(x))
+   {
+      bitvec_setare_zero(y);
+   }
+   else
+   {
+      gf2elem_t l;
+      gf2field_inversare(l, x);
+      gf2field_multiplicare(l, l, y);
+      gf2field_adauga(l, l, x);
+      gf2field_multiplicare(y, x, x);
+      gf2field_multiplicare(x, l, l);
+#if (coeff_a == 1)
+      gf2field_incrementare(l);
+#endif
+      gf2field_adauga(x, x, l);
+      gf2field_multiplicare(l, l, x);
+      gf2field_adauga(y, y, l);
+   }
+}
+static void gf2point_adaugare(gf2elem_t x1, gf2elem_t y1, const gf2elem_t x2, const gf2elem_t y2) {
+    if (gf2point_este_zero(x2, y2)) {
+        return;
+    }
+    if (gf2point_este_zero(x1, y1)) {
+        gf2point_copiere(x1, y1, x2, y2);
+        return;
+    }
+    if (bitvec_egal(x1, x2)) {
+        if (bitvec_egal(y1, y2)) {
+            gf2point_dublu(x1, y1);
+            return;
+        } else {
+            gf2point_seteaza_zero(x1, y1);
+            return;
+        }
+    }
+    gf2elem_t a, b, c, d;
+    gf2field_adauga(a, y1, y2);
+    gf2field_adauga(b, x1, x2);
+    gf2field_inversare(c, b);
+    gf2field_multiplicare(c, c, a);
+    gf2field_multiplicare(d, c, c);
+    gf2field_adauga(d, d, c);
+    gf2field_adauga(d, d, b);
+#if (coeff_a == 1)
+    gf2field_incrementare(d);
+#endif
+    gf2field_adauga(x1, x1, d);
+    gf2field_multiplicare(a, x1, c);
+    gf2field_adauga(a, a, d);
+    gf2field_adauga(y1, y1, a);
+    bitvec_copiaza(x1, d);
+}
+#if defined(CONST_TIME) && (CONST_TIME == 0)
+static void gf2point_multiplicare(gf2elem_t x, gf2elem_t y, const scalar_t exp) {
+    gf2elem_t tmpx, tmpy;
+    int nbits = bitvec_grad(exp);
+    gf2point_seteaza_zero(tmpx, tmpy);
+    gf2elem_t dummyx, dummyy;
+    gf2point_seteaza_zero(dummyx, dummyy);
+#endif
+    for (int i = (nbits - 1); i >= 0; --i) {
+        gf2point_dublu(tmpx, tmpy);
+        if (bitvec_obtine_bitul(exp, i)) {
+            gf2point_adaugare(tmpx, tmpy, x, y);
+        }
+#if defined(CONST_TIME) && (CONST_TIME == 0)
+        else {
+            gf2point_adaugare(tmpx, tmpy, dummyx, dummyy);
+        }
+#endif
+    }
+    gf2point_copiere(x, y, tmpx, tmpy);
+}
+static int gf2point_pe_curba(const gf2elem_t x, const gf2elem_t y) {
+    gf2elem_t a, b;
+    if (gf2point_este_zero(x, y)) {
+        return 1;
+    } else {
+        gf2field_multiplicare(a, x, x);
+#if (coeff_a == 0)
+        gf2field_multiplicare(a, a, x);
+#else
+        gf2field_multiplicare(b, a, x);
+        gf2field_adauga(a, a, b);
+#endif
+        gf2field_adauga(a, a, coeff_b);
+        gf2field_multiplicare(b, y, y);
+        gf2field_adauga(a, a, b);
+        gf2field_multiplicare(b, x, y);
+        return bitvec_egal(a, b);
+    }
+}
+int ecdh_generare_chei(uint8_t* pub_key, uint8_t* priv_key) {
+    gf2point_copiere((uint32_t*)pub_key, (uint32_t*)(pub_key + BITVEC_NBYTES), base_x, base_y);
+    if (bitvec_grad((uint32_t*)priv_key) < (CURVE_GRAD / 2)) {
+        return 0;
+    } else {
+        int nbits = bitvec_grad(base_order);
+        for (int i = nbits - 1; i < (BITVEC_NWORDS * 32); ++i) {
+            bitvec_sterge_bitul((uint32_t*)priv_key, i);
+        }
+        gf2point_multiplicare((uint32_t*)pub_key, (uint32_t*)(pub_key + BITVEC_NBYTES), (uint32_t*)priv_key);
+        return 1;
+    }
+}
+int ecdh_part_secret(const uint8_t* priv_key, const uint8_t* others_pub, uint8_t* output) {
+    if (!gf2point_este_zero((uint32_t*)others_pub, (uint32_t*)(others_pub + BITVEC_NBYTES)) &&
+        gf2point_pe_curba((uint32_t*)others_pub, (uint32_t*)(others_pub + BITVEC_NBYTES))) {
+        for (unsigned int i = 0; i < (BITVEC_NBYTES * 2); ++i) {
+            output[i] = others_pub[i];
+        }
+        gf2point_multiplicare((uint32_t*)output, (uint32_t*)(output + BITVEC_NBYTES), (const uint32_t*)priv_key);
+#if defined(ECDH_COFACTOR_VARIANT) && (ECDH_COFACTOR_VARIANT == 1)
+        #if (cofactor == 2)
+            gf2point_dublu((uint32_t*)output, (uint32_t*)(output + BITVEC_NBYTES));
+        #elif (cofactor == 4)
+            gf2point_dublu((uint32_t*)output, (uint32_t*)(output + BITVEC_NBYTES));
+            gf2point_dublu((uint32_t*)output, (uint32_t*)(output + BITVEC_NBYTES));
+        #endif
+#endif
+        return 1;
+    } else {
+        return 0;
+    }
+}
